@@ -84,13 +84,16 @@ cfg := config.NewConfigBuilder().
 
 ```go
 cfg := config.NewConfigBuilder().
-    // Database
-    WithDatabase(config.PostgreSQL, "postgres://user:pass@localhost/db").
-    
-    // Session settings
+    // Database configuration
+    WithDatabase(
+        config.PostgreSQL,
+        "postgres://user:pass@localhost/db",
+    ).
+
+    // Session configuration
     WithSessionDuration(24 * time.Hour).
-    
-    // Password policy
+
+    // Password policy (validation rules)
     WithPasswordPolicy(config.PasswordPolicy{
         MinLength:        12,
         RequireUppercase: true,
@@ -100,20 +103,43 @@ cfg := config.NewConfigBuilder().
         PreventCommon:    true,
         PreventReuse:     5,
     }).
-    
-    // Security
+
+    // Password hashing and verification
+    WithPasswordConfig(
+        // Custom hash function
+        func(password string) (string, error) {
+            hash := sha256.Sum256([]byte(password))
+            return hex.EncodeToString(hash[:]), nil
+        },
+
+        // Custom password verification function
+        func(password, storedHash string) bool {
+            hash := sha256.Sum256([]byte(password))
+            computed := hex.EncodeToString(hash[:])
+
+            return subtle.ConstantTimeCompare(
+                []byte(computed),
+                []byte(storedHash),
+            ) == 1
+        },
+    ).
+
+    // Security settings
     WithBcryptCost(12).
     WithCSRFProtection(true).
-    
+
     // Rate limiting
-    WithRateLimit(true, 60, 5). // 60 req/min, 5 login/min
-    
-    // Features
+    WithRateLimit(
+        true, // enabled
+        60,   // requests per minute per IP
+        5,    // login attempts per minute per IP
+    ).
+
+    // Feature flags
     RequireEmailVerification().
-    
+
     Build()
 ```
-
 ### Password Policies
 
 Idan provides three pre-configured password policies:
@@ -144,6 +170,22 @@ policy := config.PasswordPolicy{
     PreventReuse:     5, // Prevent reusing last 5 passwords
 }
 ```
+
+### Password Config
+
+Idan allows for customization of the hashing algorithm. The default hash mode is bcrypt.
+
+Passwords are first hashed with SHA256 to prevent the error when a password is longer than 72 chars in Bcrypt.
+The SHA256 sum is then rehashed with bcrypt.
+
+To define a custom hashing algorithm, create a PasswordConfig and pass it when building the config
+
+```go
+pwConfig := config.PasswordConfig{
+		func (s string) (string, error) {}, // Custom hash implementation, returns a string and error
+		func (s1, s2 string) bool {} // Custom function to check if the password is the plaintext equivalent of the hash
+}
+````
 
 ## Middleware Usage
 
@@ -408,10 +450,6 @@ Check the `examples/` directory for:
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-## License
-
-MIT License - see LICENSE file for details
-
 ## Author
 
 **Tobi Bamidele** - [GitHub](https://github.com/tobibamidele)
@@ -421,5 +459,3 @@ MIT License - see LICENSE file for details
 Built with ❤️ for the Go community
 
 ---
-
-**Note**: This library is production-ready but continuously evolving. Please report any issues or feature requests on GitHub.

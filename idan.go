@@ -188,10 +188,19 @@ func (i *Idan) CreateUser(ctx context.Context, req models.CreateUserRequest) (*m
 		return nil, err
 	}
 
+	var hash string
+	var err error
 	// Hash password
-	hash, err := crypto.HashPassword(req.Password, i.config.Security.BcryptCost)
-	if err != nil {
-		return nil, fmt.Errorf("failed to hash password: %w", err)
+	if i.config.PasswordConfig != nil {
+		hash, err = i.config.PasswordConfig.HashPassword(req.Password)
+		if err != nil {
+			return nil, fmt.Errorf("failed to hash password: %w", err)
+		}
+	} else {
+		hash, err = crypto.HashPassword(req.Password, i.config.Security.BcryptCost)
+		if err != nil {
+			return nil, fmt.Errorf("failed to hash password: %w", err)
+		}
 	}
 
 	// Create verification token if email verification is required
@@ -247,7 +256,14 @@ func (i *Idan) AuthenticateUser(ctx context.Context, email, password, ipAddress,
 	}
 
 	// Verify password
-	if !crypto.CheckPassword(password, user.PasswordHash) {
+	var isPasswordCorrect bool
+	if i.config.PasswordConfig != nil {
+		isPasswordCorrect = i.config.PasswordConfig.CheckPassword(password, user.PasswordHash)
+	} else {
+		isPasswordCorrect = crypto.CheckPassword(password, user.PasswordHash)
+	}
+
+	if !isPasswordCorrect {
 		// Increment failed attempts
 		_ = i.store.IncrementFailedLogins(ctx, user.ID)
 

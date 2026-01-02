@@ -15,6 +15,7 @@ type Config struct {
 	Database       DatabaseConfig
 	Session        SessionConfig
 	PasswordPolicy PasswordPolicy
+	PasswordConfig *PasswordConfig
 	Security       SecurityConfig
 	Email          *EmailConfig
 	Features       FeatureConfig
@@ -159,45 +160,59 @@ func (cb *ConfigBuilder) WithPasswordPolicy(policy PasswordPolicy) *ConfigBuilde
 	return cb
 }
 
+// WithPasswordConfig sets the password config
+func (cb *ConfigBuilder) WithPasswordConfig(hash func(string) (string, error), check func(string, string) bool) *ConfigBuilder {
+	if hash == nil || check == nil {
+		panic("password hashing and check function must be defined when implementing custon password config.")
+	}
+
+	cb.config.PasswordConfig = &PasswordConfig{
+		HashPassword:  hash,
+		CheckPassword: check,
+	}
+
+	return cb
+}
+
 // WithCSRFProtection enables/disables CSRF protection
-func (b *ConfigBuilder) WithCSRFProtection(enabled bool) *ConfigBuilder {
-	b.config.Security.CSRFProtection = enabled
-	return b
+func (cb *ConfigBuilder) WithCSRFProtection(enabled bool) *ConfigBuilder {
+	cb.config.Security.CSRFProtection = enabled
+	return cb
 }
 
 // WithBcryptCost sets the bcrypt cost
-func (b *ConfigBuilder) WithBcryptCost(cost int) *ConfigBuilder {
-	b.config.Security.BcryptCost = cost
-	return b
+func (cb *ConfigBuilder) WithBcryptCost(cost int) *ConfigBuilder {
+	cb.config.Security.BcryptCost = cost
+	return cb
 }
 
 // WithRateLimit configures rate limiting
-func (b *ConfigBuilder) WithRateLimit(enabled bool, requestsPerMin, loginPerMin int) *ConfigBuilder {
-	b.config.RateLimit.Enabled = enabled
-	b.config.RateLimit.RequestsPerMin = requestsPerMin
-	b.config.RateLimit.LoginPerMin = loginPerMin
-	return b
+func (cb *ConfigBuilder) WithRateLimit(enabled bool, requestsPerMin, loginPerMin int) *ConfigBuilder {
+	cb.config.RateLimit.Enabled = enabled
+	cb.config.RateLimit.RequestsPerMin = requestsPerMin
+	cb.config.RateLimit.LoginPerMin = loginPerMin
+	return cb
 }
 
 // DisableRegistration disables new user registration
-func (b *ConfigBuilder) DisableRegistration() *ConfigBuilder {
-	b.config.Features.EnableRegistration = false
-	return b
+func (cb *ConfigBuilder) DisableRegistration() *ConfigBuilder {
+	cb.config.Features.EnableRegistration = false
+	return cb
 }
 
 // RequireEmailVerification requires email verification for new accounts
-func (b *ConfigBuilder) RequireEmailVerification() *ConfigBuilder {
-	b.config.Features.RequireEmailVerification = true
-	return b
+func (cb *ConfigBuilder) RequireEmailVerification() *ConfigBuilder {
+	cb.config.Features.RequireEmailVerification = true
+	return cb
 }
 
 // WithEmailConfig sets email configuration
-func (b *ConfigBuilder) WithEmailConfig(cfg EmailConfig) *ConfigBuilder {
-	b.config.Email = &cfg
-	return b
+func (cb *ConfigBuilder) WithEmailConfig(cfg EmailConfig) *ConfigBuilder {
+	cb.config.Email = &cfg
+	return cb
 }
 
 // Build returns the final Config
-func (b *ConfigBuilder) Build() *Config {
-	return b.config
+func (cb *ConfigBuilder) Build() *Config {
+	return cb.config
 }

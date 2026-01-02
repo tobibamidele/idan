@@ -13,6 +13,12 @@ type PasswordPolicy struct {
 	PreventReuse     int    // Prevent reusing last N passwords (0 = disabled)
 }
 
+// PasswordConfig defines the custom implementations of the hashing and verification functions
+type PasswordConfig struct {
+	HashPassword  func(password string) (string, error) // Function to hash password, returns a string and an error
+	CheckPassword func(password, hash string) bool      // Function to check if a password is the plaintext equiv of the hash, returns a bool
+}
+
 // DefaultPasswordPolicy returns a secure default password policy
 func DefaultPasswordPolicy() PasswordPolicy {
 	return PasswordPolicy{

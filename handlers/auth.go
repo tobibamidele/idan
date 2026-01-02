@@ -73,10 +73,22 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hash, err := crypto.HashPassword(req.Password, h.config.Security.BcryptCost)
-	if err != nil {
-		h.writeError(w, http.StatusInternalServerError, errors.ErrInternalServer)
-		return
+	var hash string
+	var err error
+
+	// Use custom hash if it's set
+	if h.config.PasswordConfig != nil {
+		hash, err = h.config.PasswordConfig.HashPassword(req.Password)
+		if err != nil {
+			h.writeError(w, http.StatusInternalServerError, errors.ErrInternalServer)
+			return
+		}
+	} else {
+		hash, err = crypto.HashPassword(req.Password, h.config.Security.BcryptCost)
+		if err != nil {
+			h.writeError(w, http.StatusInternalServerError, errors.ErrInternalServer)
+			return
+		}
 	}
 
 	// Create verification token if need
@@ -157,7 +169,15 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify password
-	if !crypto.CheckPassword(req.Password, user.PasswordHash) {
+	// Use custom checker if set
+	var isPasswordCorrect bool
+	if h.config.PasswordConfig != nil {
+		isPasswordCorrect = h.config.PasswordConfig.CheckPassword(req.Password, user.PasswordHash)
+	} else { // Default to basic one
+		isPasswordCorrect = crypto.CheckPassword(req.Password, user.PasswordHash)
+	}
+
+	if !isPasswordCorrect {
 		// Increment failed attempts
 		_ = h.store.IncrementFailedLogins(r.Context(), user.ID)
 
